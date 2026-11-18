@@ -25,7 +25,7 @@ const articlePositions = {
   'SUPER-1': ['SUPER', '📋', 'планшет', 'clipboard'],
   'SUPER-2': ['SUPER', '🔍', 'лупа', 'magnifying glass'],
   'SUPER-3': ['SUPER', '📈', 'диаграмма роста', 'chart increasing'],
-  'SEC-01': ['ROOT', '🎯', 'цель', 'bullseye'],
+  'SEC-01': ['ROOT', '🎯', 'дартс', 'direct hit'],
   'SEC-01-1': ['SEC-01', '📝', 'заметка', 'memo'],
   'SEC-01-2': ['SEC-01', '📌', 'кнопка', 'pushpin'],
   'SEC-01-3': ['SEC-01', '✅', 'галочка', 'check mark button'],
@@ -645,20 +645,23 @@ export async function runSpacePilot(page, plan, {
     stage = item.key + ' / название ТБД';
     const entry = state.objects[item.key];
     try {
+      await confirmDatabaseTitle(item, url, parent, true);
       if (plan.singlePass) {
-        await databaseTitle.waitFor(timeout);
-        const current = await databaseTitle.evaluate(el => (el.value ?? el.innerText).trim());
-        if (current !== item.title) {
-          await databaseTitle.fill(item.title, timeout);
-          await databaseTitle.press('Tab', timeout);
-        }
-        try {
-          await sidebarTitle(url, item.title, sidebarTimeout);
-        } catch (error) {
-          if (error.name !== 'TimeoutError') throw error;
+        // The sidebar can reflect an optimistic title before Teamly persists it.
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          await page.reload({ ...timeout, waitUntil: 'domcontentloaded' });
+          reopened += 1;
+          requireValue(urlOf(page.url(), 'db') === url, 'Открылась другая таблица.');
+          await databaseTitle.waitFor(timeout);
+          const heading = await databaseTitle.evaluate(el => (el.value ?? el.innerText).trim());
+          if (heading === item.title) {
+            await sidebarTitle(url, item.title, timeout);
+            break;
+          }
+          requireValue(attempt === 0, 'Название ТБД «' + item.title + '» не сохранилось после повторного открытия.');
           await confirmDatabaseTitle(item, url, parent, true);
         }
-      } else await confirmDatabaseTitle(item, url, parent, true);
+      }
     } catch (error) {
       entry.issues = [error.message.split('\n')[0]];
       await save({ report: true }).catch(() => {});
@@ -1495,7 +1498,8 @@ async function main() {
   validate(plan);
   const preparedArticles = values.articles ? await readWorkArticles(values.articles, plan) : undefined;
   const preparedTables = values.tables ? await readSmartTables(values.tables, plan) : undefined;
-  const newFullMedia = plan.singlePass && !saved.objects?.ROOT?.url && Boolean(values.content && values.articles && values.tables && values.course);
+  const fullMedia = plan.singlePass && Boolean(values.content && values.articles && values.tables && values.course);
+  const newFullMedia = fullMedia && !saved.objects?.ROOT?.url;
   const preparedCourse = values.course ? await readCourse(values.course, plan, { requireCoverScenes: newFullMedia }) : undefined;
   const courseRunner = (current, course, mode, previous, checkpoint = 'undefined') => '(' + runCourse.toString() + ')(' +
     [current, course, mode, previous, '(' + courseTest.toString() + ')', '(' + courseMaterial.toString() + ')', checkpoint].join(',') + ')';
@@ -1569,7 +1573,7 @@ async function main() {
       cards: resolve(values.covers, '..', key + ' — карточки.png'),
     }]));
   }
-  const preparedContent = values.content ? await readSpaceContent(values.content, plan, { requireRoundedAssets: newFullMedia }) : undefined;
+  const preparedContent = values.content ? await readSpaceContent(values.content, plan, { requireRoundedAssets: fullMedia }) : undefined;
   const fullInputs = preparedContent && preparedArticles && preparedTables && preparedCourse;
   const demo = plan.singlePass && fullInputs && ['build', 'check', 'apply-code'].includes(mode)
     ? prepareDemo(plan, preparedArticles, plan.pages.filter(needsCover)) : undefined;

@@ -82,9 +82,21 @@ export async function writeArticle(page, item, object, origin, local) {
   }
   if (item.publish) {
     const publish = button(page, 'Опубликовать');
-    if (await publish.count() === 1) {
-      await publish.click();
-      const treeDraft = page.locator('.tree-item:has(a[href=' + JSON.stringify(new URL(href).pathname) + ']) use[href="#icon-draft"]');
+    const url = new URL(href);
+    const treeDraft = page.locator('.tree-item:has(a[href=' + JSON.stringify(url.pathname) + ']) use[href="#icon-draft"]');
+    if (await publish.count() || await treeDraft.count()) {
+      const publishPath = '/api/v1/wiki/articles/' + url.pathname.split('/').filter(Boolean).at(-1) + '/publish';
+      const publishButton = await unique(publish, 'публикация статьи');
+      const [response] = await Promise.all([
+        page.waitForResponse(reply => new URL(reply.url()).origin === origin &&
+          new URL(reply.url()).pathname === publishPath && reply.request().method() === 'POST',
+        { timeout: 12000 }).catch(error => {
+          if (error.name !== 'TimeoutError') throw error;
+          return null;
+        }),
+        publishButton.click(),
+      ]);
+      requireValue(!response || response.ok(), 'Teamly отклонил публикацию статьи.');
       requireValue(await poll(async () => await publish.count() === 0 && await treeDraft.count() === 0, 15000),
         'Публикация статьи не подтверждена.');
     }

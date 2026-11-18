@@ -4,7 +4,7 @@ import { parseArgs } from 'node:util';
 import { discoverObject, createObject, findSpace, go, matches, perform, poll } from './code-mode/browser.mjs';
 import { verifyArticle, writeArticle } from './code-mode/article.mjs';
 import { verifyTable, writeTable } from './code-mode/table.mjs';
-import { ensureStep, withJournal } from './code-mode/journal.mjs';
+import { ensureStep, retryAllows, withJournal } from './code-mode/journal.mjs';
 import { readPlan, requireValue } from './code-mode/plan.mjs';
 
 function reason(error) {
@@ -26,19 +26,18 @@ function compactPending(pending) {
 async function resolveSpace(page, settings, state, save, write, retry) {
   const { plan, origin, local } = settings;
   const specification = state.objects.space ? { url: state.objects.space.href } : plan.space;
-  const find = () => findSpace(page, specification, origin, local, false);
-  let href = await find();
-  if (!href && write && plan.space.create && !state.objects.space) {
-    let created;
-    href = await ensureStep(state, save, 'space:create', async () => created ?? await find(), async () => {
-      created = await findSpace(page, plan.space, origin, local, true);
-      requireValue(created, 'Создание пространства не подтверждено.');
-      state.objects.space = { href: created, kind: 'space', created: true };
-      await save();
-    }, retry);
-  }
+  let created = false;
+  const beforeCreate = write && plan.space.create && !state.objects.space ? async () => {
+    const step = 'space:create';
+    requireValue(!state.steps[step] || retryAllows(retry, step),
+      'Проверьте исход шага «' + step + '». Если результат точно отсутствует, повторите с --retry ' + step + '.');
+    state.steps[step] = 'pending';
+    await save();
+    created = true;
+  } : undefined;
+  const href = await findSpace(page, specification, origin, local, beforeCreate);
   requireValue(href, 'Пространство не найдено. Сверьте ссылку, имя и права доступа.');
-  const space = state.objects.space ?? { href, kind: 'space' };
+  const space = state.objects.space ?? { href, kind: 'space', ...(created && { created }) };
   if (write && (!state.objects.space || state.steps['space:create'] === 'pending')) {
     state.objects.space = space;
     if (state.steps['space:create'] === 'pending') state.steps['space:create'] = 'verified';
@@ -80,7 +79,7 @@ async function runUI(page, item, target, settings, state, save, write, retry) {
   const read = async () => {
     await go(page, target.href, origin);
     if (item.before) await perform(page, item.before, local);
-    return poll(() => matches(page, item.verify), 1700);
+    return poll(() => matches(page, item.verify));
   };
   if (write) {
     await ensureStep(state, save, item.key, read, async () => {

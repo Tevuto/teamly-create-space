@@ -35,7 +35,7 @@ node teamly-superarticle/scripts/teamly-code.mjs build runs/frame/plan.json --pr
 node teamly-superarticle/scripts/teamly-code.mjs verify runs/frame/plan.json --profile .teamly-frame-profile --state runs/frame/build.state.json
 ```
 
-Войдите в Teamly в окне Chrome, которое открывает `sign-in`. Команда `check` проверяет план локально. `build` создаёт и наполняет объекты, а `verify` сверяет сохранённый результат. Пункты `manual` выполните в редакторе по указаниям отчёта. [Формат плана](teamly-superarticle/references/code-mode.md) · [Маршруты редактора](references/recorded-space-ui.md)
+Войдите в Teamly в окне Chrome, которое открывает `sign-in`. Команда `check` проверяет план локально. `build` создаёт и наполняет объекты, а `verify` сверяет сохранённый результат. Пункты `manual` в других планах выполните в редакторе по указаниям отчёта. Для каркаса обложки, эмодзи и формат карточек можно настроить после сборки. [Формат плана](teamly-superarticle/references/code-mode.md) · [Маршруты редактора](references/recorded-space-ui.md)
 
 ## Полный демохост
 

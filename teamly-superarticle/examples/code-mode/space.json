@@ -63,23 +63,19 @@
       "publish": true
     },
     {
-      "key": "ROOT-cover",
-      "kind": "manual",
-      "on": "ROOT",
-      "title": "После подготовки шести обложек и эмодзи проверить рамки и оформить корневую и пять разделов по recorded-space-ui.md."
-    },
-    {
       "key": "ROOT-navigation",
       "kind": "ui",
       "on": "ROOT",
       "title": "Добавить нативный вывод вложенных статей",
       "steps": [
         {"do": "click", "target": ".editor__editor > .tiptap.ProseMirror"},
+        {"do": "press", "target": ".editor__editor > .tiptap.ProseMirror", "value": "End"},
+        {"do": "press", "target": ".editor__editor > .tiptap.ProseMirror", "value": "Enter"},
         {"do": "click", "target": ".editor-menu-dropdown > .dropdown__trigger > .dropdown__trigger-button"},
         {"do": "click", "target": {"button": "Вывод вложенных статей"}}
       ],
       "verify": [
-        {"target": ".editor__editor .nested-articles-dropdown__btn", "state": "visible"}
+        {"target": ".editor__editor .nested-articles", "state": "visible"}
       ]
     }
   ]

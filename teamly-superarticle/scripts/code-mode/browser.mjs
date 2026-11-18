@@ -114,6 +114,13 @@ export async function tree(page, origin) {
         }
       }
     }
+    const rootIcon = 'use[href="#icon-space"], use[href="#icon-home"], use[href="#icon-home-filled"]';
+    if (!parentLink && node?.parentElement?.matches('.article-content-tree__content')) {
+      const firstNode = [...node.parentElement.children].find(child => child.matches('.drag-tree-node'));
+      if (firstNode && firstNode !== node && firstNode.querySelector(rootIcon)) {
+        parentLink = firstNode.querySelector('a.tree-item__link');
+      }
+    }
     const content = link.parentElement?.querySelector('.tree-item__content');
     const title = link.innerText.trim() || content?.innerText.trim() || link.title;
     return [{
@@ -122,7 +129,7 @@ export async function tree(page, origin) {
       parent: parentLink ? parentLink.origin + parentLink.pathname.replace(/\/$/u, '') : null,
       title,
       draft: Boolean(content?.querySelector('use[href="#icon-draft"]')),
-      root: Boolean(link.closest('.tree-item')?.querySelector('use[href="#icon-home"], use[href="#icon-home-filled"]'))
+      root: Boolean(link.closest('.tree-item')?.querySelector(rootIcon))
     }];
   }), origin);
 }
@@ -200,7 +207,7 @@ export async function createObject(page, item, target, origin, recordUrl) {
   return href;
 }
 
-export async function findSpace(page, space, origin, local, create) {
+export async function findSpace(page, space, origin, local, beforeCreate) {
   if (space.url) {
     await go(page, space.url, origin);
     await unique(testId(page, 'space-sidebar-create-button').or(button(page, 'Создать')).first(), 'доступное пространство');
@@ -208,9 +215,32 @@ export async function findSpace(page, space, origin, local, create) {
   }
   await go(page, space.list, origin);
   const search = await unique(visible(page.getByRole('textbox', { name: 'Поиск по пространствам' })), 'поиск по всем пространствам');
+  const searched = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.origin === origin && url.pathname === '/api/v1/wiki/ql/spaces' &&
+      response.request().postData()?.includes(space.title);
+  }, { timeout: 8000 }).catch(error => {
+    if (error.name !== 'TimeoutError') throw error;
+    return null;
+  });
   await search.fill(space.title);
   await search.press('Enter');
+  const response = await searched;
   const title = normalized(space.title);
+  let noExactMatch = false;
+  if (response) {
+    requireValue(response.ok(), 'Не удалось проверить совпадения в списке пространств.');
+    const { data, paginate } = await response.json();
+    if (Array.isArray(data) && data.every(item => typeof item.title === 'string' && typeof item.id === 'string')) {
+      const exact = data.filter(item => normalized(item.title) === title);
+      requireValue(exact.length < 2, 'Совпало несколько пространств. Укажите точный URL.');
+      if (exact.length === 1 && paginate?.last_page === 1) {
+        return targetUrl(origin + '/sp/' + exact[0].id, origin, spacePath).href;
+      }
+      noExactMatch = exact.length === 0 && paginate?.current_page === 1 &&
+        paginate.last_page === 1 && paginate.total === data.length;
+    }
+  }
   const started = Date.now();
   const findMatch = async () => {
     const links = await page.locator('a[href*="/sp/"]').evaluateAll((nodes, {title, origin}) => nodes
@@ -220,15 +250,17 @@ export async function findSpace(page, space, origin, local, create) {
     const urls = [...new Set(links.filter(link => spacePath.test(new URL(link).pathname)).map(link => spaceUrl(new URL(link))))];
     requireValue(urls.length < 2, 'Совпало несколько пространств. Укажите точный URL.');
     if (urls.length === 1) return { href: urls[0] };
+    if (noExactMatch) return { empty: true };
     if (Date.now() - started < 700) return null;
     return await text(page, /^(Ничего не найдено|Нет пространств|Пространства не найдены|Пространств пока нет|Здесь пока ещё ничего нет|Пока нет пространств|Нет доступных пространств)$/u).count()
       ? { empty: true } : null;
   };
   const result = await poll(findMatch, 4200);
   if (result?.href) return result.href;
-  if (!create) return null;
+  if (!beforeCreate) return null;
   requireValue(result?.empty || (space.absence && await matches(page, space.absence)),
     'Интерфейс не подтвердил отсутствие одноимённого пространства. Сверьте список или укажите URL.');
+  await beforeCreate();
   const top = button(page, 'Создать пространство').and(visible(page.locator('.space-list-page__action.create button')));
   await (await unique(top, 'мастер создания пространства')).click();
   const titleField = testId(page, 'create-space-popup-title');
@@ -268,5 +300,5 @@ export async function findSpace(page, space, origin, local, create) {
   }, 4000);
   if (opened) return opened;
   // Teamly can open the new root article or stay on the list after creation.
-  return findSpace(page, space, origin, local, false);
+  return findSpace(page, space, origin, local);
 }
