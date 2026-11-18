@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "space": {
+    "list": "https://teamly.example/space/list/all",
+    "title": "Департамент поддержки",
+    "description": "Регламенты, стандарты и рабочие инструменты команды поддержки.",
+    "create": true
+  },
+  "items": [
+    {
+      "key": "ROOT",
+      "kind": "article",
+      "root": true,
+      "populateEmpty": true,
+      "title": "Департамент поддержки",
+      "html": "<p>Здесь собраны рабочие материалы команды поддержки.</p>",
+      "expect": ["рабочие материалы команды поддержки"],
+      "publish": true
+    },
+    {
+      "key": "SEC-01",
+      "kind": "article",
+      "parent": "ROOT",
+      "title": "Обработка обращений",
+      "html": "<p>Порядок приёма, классификации и распределения обращений.</p>",
+      "expect": ["классификации и распределения обращений"],
+      "publish": true
+    },
+    {
+      "key": "SEC-02",
+      "kind": "article",
+      "parent": "ROOT",
+      "title": "Контроль сроков",
+      "html": "<p>Правила контроля сроков ответа и решения.</p>",
+      "expect": ["Правила контроля сроков"],
+      "publish": true
+    },
+    {
+      "key": "SEC-03",
+      "kind": "article",
+      "parent": "ROOT",
+      "title": "Контроль качества",
+      "html": "<p>Критерии проверки ответа и разбор повторных обращений.</p>",
+      "expect": ["Критерии проверки ответа"],
+      "publish": true
+    },
+    {
+      "key": "SEC-04",
+      "kind": "article",
+      "parent": "ROOT",
+      "title": "База знаний операторов",
+      "html": "<p>Рабочие инструкции и шаблоны ответов по частым вопросам.</p>",
+      "expect": ["шаблоны ответов по частым вопросам"],
+      "publish": true
+    },
+    {
+      "key": "SEC-05",
+      "kind": "article",
+      "parent": "ROOT",
+      "title": "Примеры использования ТБД",
+      "html": "<p>Реестры обращений, повторных запросов и инструкций.</p>",
+      "expect": ["Реестры обращений"],
+      "publish": true
+    },
+    {
+      "key": "ROOT-cover",
+      "kind": "manual",
+      "on": "ROOT",
+      "title": "После подготовки шести обложек и эмодзи проверить рамки и оформить корневую и пять разделов по recorded-space-ui.md."
+    },
+    {
+      "key": "ROOT-navigation",
+      "kind": "ui",
+      "on": "ROOT",
+      "title": "Добавить нативный вывод вложенных статей",
+      "steps": [
+        {"do": "click", "target": ".editor__editor > .tiptap.ProseMirror"},
+        {"do": "click", "target": ".editor-menu-dropdown > .dropdown__trigger > .dropdown__trigger-button"},
+        {"do": "click", "target": {"button": "Вывод вложенных статей"}}
+      ],
+      "verify": [
+        {"target": ".editor__editor .nested-articles-dropdown__btn", "state": "visible"}
+      ]
+    }
+  ]
+}
